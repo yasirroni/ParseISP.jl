@@ -21,29 +21,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for f in scripts/.isp2026-repair-final/part00 scripts/.isp2026-repair-final/part01 scripts/.isp2026-repair-final/part02; do
-            printf '%s size=' "$f"
-            wc -c < "$f"
-            python - "$f" <<'PY'
-          import pathlib, sys
-          p = pathlib.Path(sys.argv[1])
-          b = p.read_bytes()
-          allowed = b'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=\r\n'
-          bad = [(i, x) for i, x in enumerate(b) if x not in allowed]
-          print('invalid_bytes=', bad[:10], 'count=', len(bad))
-          PY
-          done
           cat scripts/.isp2026-repair-final/part00 scripts/.isp2026-repair-final/part01 scripts/.isp2026-repair-final/part02 > /tmp/repair.b64
-          python - <<'PY'
-          import pathlib
-          b = pathlib.Path('/tmp/repair.b64').read_bytes().replace(b'\n', b'').replace(b'\r', b'')
-          print('combined_base64_length=', len(b), 'mod4=', len(b) % 4)
-          PY
+          printf '=' >> /tmp/repair.b64
           base64 -d /tmp/repair.b64 > /tmp/repair.diff.gz
           sha256sum /tmp/repair.diff.gz
           gzip -t /tmp/repair.diff.gz
           gzip -dc /tmp/repair.diff.gz > /tmp/repair.diff
           sha256sum /tmp/repair.diff
           patch -p1 --dry-run --batch < /tmp/repair.diff
-          wc -c /tmp/repair.diff.gz /tmp/repair.diff
+          wc -c /tmp/repair.b64 /tmp/repair.diff.gz /tmp/repair.diff
           grep -c '^diff --git ' /tmp/repair.diff
