@@ -31,24 +31,12 @@ inspect_candidate('Gas System Properties', 'B51:G105')
 inspect_candidate('Gas System Properties', 'B108:H122')
 
 # %% [markdown]
-# ### Gas reserves and resources summary
+# ### Gas reserves and resources
 #
-# Gives the aggregate developed and undeveloped 2P reserves and 2C resources reported from the Gas Bulletin Board.
-#
-# Source block: `Gas System Properties!B127:F130` (4 rows × 5 columns).
+# Candidate source block: `B124:F144` (21 rows × 5 columns).
 
 # %%
-inspect_source_range('Gas System Properties', 'B127:F130')
-
-# %% [markdown]
-# ### Gas reserves and resources by basin
-#
-# Lists 2P reserves and 2C resources by gas basin.
-#
-# Source block: `Gas System Properties!B132:E144` (13 rows × 4 columns).
-
-# %%
-inspect_source_range('Gas System Properties', 'B132:E144')
+inspect_candidate('Gas System Properties', 'B124:F144')
 
 # %% [markdown]
 # ### Pipeline transmission tariffs

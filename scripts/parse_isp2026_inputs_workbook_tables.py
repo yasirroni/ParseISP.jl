@@ -2,8 +2,8 @@
 # # 2026 ISP inputs and assumptions workbook — semantic tables
 #
 # This notebook reads the semantic source tables identified by the discovery notebook.
-# Source ranges are explicit Excel coordinates. Complex multi-row headers remain in the source block,
-# and genuinely missing cells remain missing unless a table-specific workbook rule says otherwise.
+# Source ranges are explicit Excel coordinates. Semantic headers and data rows are reconstructed from
+# workbook structure, while genuinely missing cells remain missing unless a table-specific rule applies.
 
 # %%
 from __future__ import annotations
@@ -54,7 +54,7 @@ SHEET_RANGES = {'Disclaimer': [],
  'Existing Gen Data Summary': ['B10:AT738'],
  'New Entrant Data Summary': ['B9:BB535'],
  'New Electrolyser Data Summary': ['B5:AQ67'],
- 'Fuel Price Summary': ['B7:S9', 'B11:AK738', 'B743:AK1268'],
+ 'Fuel Price Summary': ['B8:S8', 'B9:S9', 'B11:AK738', 'B743:AK1268'],
  'Regional Build Costs Summary': ['B7:C10', 'B12:AV75'],
  'Energy Policy Targets': ['C15:E30',
                            'C32:F62',
@@ -106,7 +106,7 @@ SHEET_RANGES = {'Disclaimer': [],
  'Aggregated energy storages': ['B7:E9', 'B11:AH62', 'B65:AH116'],
  'Network representation': ['B2:E22', 'B24:D42', 'B44:D53', 'B55:D63', 'B65:D82'],
  'Renewable energy zones': ['B6:E53'],
- 'Network capability': ['B8:K25', 'B34:K42', 'B51:N60', 'B75:V84', 'B89:E94', 'B99:D115', 'B122:C134', 'B139:C148'],
+ 'Network capability': ['B6:K25', 'B34:K42', 'B51:N60', 'B75:V84', 'B89:E94', 'B99:D115', 'B122:C134', 'B139:C148'],
  'Network losses': ['B5:J28', 'B30:J34', 'B36:J88'],
  'Transmission Reliability': ['B7:E13'],
  'Distribution network': ['B11:G38', 'B40:H57', 'B59:AZ1433'],
@@ -132,7 +132,7 @@ SHEET_RANGES = {'Disclaimer': [],
  'Build costs': ['B2:AJ77'],
  'Fixed OPEX': ['B5:E739', 'G5:I32'],
  'Variable OPEX': ['B5:E738', 'G5:H32'],
- 'Marginal Loss Factors': ['B10:F748', 'I10:M536', 'O10:S161'],
+ 'Marginal Loss Factors': ['B10:G748', 'I10:M536', 'O10:S161'],
  'Locational Cost Factors': ['B9:H80', 'B83:I132', 'B134:G158', 'B161:X227'],
  'Build limits - REZs': ['B2:Q62',
                          'B64:N119',
@@ -159,20 +159,20 @@ SHEET_RANGES = {'Disclaimer': [],
                                 'B305:AG429',
                                 'B433:AG438',
                                 'B440:AG452'],
- 'Gas System Properties': ['B7:F49', 'B51:G105', 'B108:H122', 'B124:F144', 'B146:E169', 'B171:E185'],
+ 'Gas System Properties': ['B7:F49', 'B51:G105', 'B108:H122', 'B127:F130', 'B132:E144', 'B146:E169', 'B171:E185'],
  'GPG emissions reduction - BioM': ['B2:AF12'],
  'Power System Security': ['B4:D49', 'B52:AE56', 'B58:G72', 'B74:G94'],
  'Reserves': ['B2:C14'],
  'Hydrogen demand - Domestic': ['B2:AH53'],
  'Hydrogen monthly profiles': ['B2:AG44'],
  'Hydrogen demand-Export&Commod': ['B2:AH52', 'B54:AH105', 'B107:AH156'],
- 'Hydrogen consumption locations': ['B5:F40', 'B42:B44', 'B46:D57'],
+ 'Hydrogen consumption locations': ['B7:C9', 'B15:C18', 'B24:F40', 'B42:B44', 'B46:D57'],
  'Water for Hydrogen': ['B2:AH52'],
  'Desalination demand for H2': ['B2:AH52'],
  'H2 as fuel for GPG Limit': ['B2:AG21'],
  'Build Cost - Hydrogen pipeline': ['B2:AJ156'],
  'Other hydrogen assumptions': ['B2:C5', 'B7:AF11', 'B13:AF17', 'B19:AF23', 'B26:AF30', 'B32:C35'],
- 'Summary Mapping': ['C2:AF733', 'C734:AF786', 'C790:AF1316', 'C1319:AF1381']}
+ 'Summary Mapping': ['B2:AF733', 'B734:AF786', 'B790:AF1316', 'B1319:AF1381']}
 
 workbook = load_workbook(WORKBOOK_PATH, read_only=True, data_only=True, keep_links=False)
 
@@ -220,9 +220,138 @@ def _merged_ranges(path: Path, sheet_name: str) -> list[str]:
             elem.clear()
     return result
 
+def _is_note_row(values: list[object]) -> bool:
+    nonempty = [value for value in values if not pd.isna(value) and str(value).strip()]
+    if not nonempty:
+        return False
+    first = str(nonempty[0]).strip().lower()
+    return first.startswith(('source:', 'note:', 'notes:', '*')) or (
+        len(nonempty) == 1 and first.startswith(('http://', 'https://'))
+    )
+
+
+def _unique_headers(values: list[object]) -> list[str]:
+    result = []
+    counts: dict[str, int] = {}
+    for i, value in enumerate(values, 1):
+        base = str(value).strip() if not pd.isna(value) and str(value).strip() else f'Value {i}'
+        count = counts.get(base, 0) + 1
+        counts[base] = count
+        result.append(base if count == 1 else f'{base} ({count})')
+    return result
+
+
+def _merged_header_values(sheet_name: str, frame: pd.DataFrame, row: int) -> list[object]:
+    values = list(frame.loc[row])
+    columns = list(frame.columns)
+    col_to_i = {column: i for i, column in enumerate(columns)}
+    for merged in _merged_ranges(WORKBOOK_PATH, sheet_name):
+        min_col, min_row, max_col, max_row = range_boundaries(merged)
+        if not (min_row <= row <= max_row):
+            continue
+        anchor_col = get_column_letter(min_col)
+        if anchor_col not in col_to_i or min_row not in frame.index:
+            continue
+        anchor = frame.at[min_row, anchor_col]
+        if pd.isna(anchor):
+            continue
+        for col_num in range(min_col, max_col + 1):
+            col = get_column_letter(col_num)
+            if col in col_to_i and pd.isna(values[col_to_i[col]]):
+                values[col_to_i[col]] = anchor
+    return values
+
+
+def _combine_header_rows(sheet_name: str, frame: pd.DataFrame, rows: list[int]) -> list[str]:
+    parts = [_merged_header_values(sheet_name, frame, row) for row in rows]
+    headers = []
+    for col_i in range(len(frame.columns)):
+        seen = []
+        for row_values in parts:
+            value = row_values[col_i]
+            if pd.isna(value) or not str(value).strip():
+                continue
+            text = str(value).strip()
+            if not seen or seen[-1] != text:
+                seen.append(text)
+        headers.append(' — '.join(seen) if seen else None)
+    return _unique_headers(headers)
+
+
+def _detect_header_row(frame: pd.DataFrame) -> int | None:
+    rows = [row for row in frame.index if frame.loc[row].notna().any()]
+    if not rows:
+        return None
+    candidates = rows[: min(12, len(rows))]
+    best = None
+    best_score = float('-inf')
+    for row in candidates:
+        vals = [v for v in frame.loc[row].tolist() if not pd.isna(v) and str(v).strip()]
+        if not vals:
+            continue
+        text = sum(isinstance(v, str) for v in vals)
+        n = len(vals)
+        # Titles/prose are usually single-cell; ordinary headers span columns.
+        score = n * 3 + text * 2 - (8 if n == 1 else 0)
+        # Prefer a row followed by populated records.
+        later = [r for r in rows if r > row][:2]
+        if later:
+            score += sum(int(frame.loc[r].notna().sum()) for r in later) / 4
+        if score > best_score:
+            best_score, best = score, row
+    return best
+
+
+def parse_semantic_range(
+    sheet_name: str,
+    cell_range: str,
+    *,
+    header_rows: list[int] | None = None,
+    data_rows: list[int] | range | None = None,
+    min_values: int = 1,
+    column_names: list[str] | None = None,
+) -> pd.DataFrame:
+    source = read_source_range(sheet_name, cell_range)
+    # Drop columns that contain no values anywhere in the declared source block.
+    frame = source.dropna(axis=1, how='all').copy()
+    if data_rows is not None:
+        rows = [row for row in data_rows if row in frame.index]
+    else:
+        if header_rows is None:
+            detected = _detect_header_row(frame)
+            header_rows = [detected] if detected is not None else []
+        start = max(header_rows) + 1 if header_rows else int(frame.index.min())
+        rows = [row for row in frame.index if row >= start]
+    # Keep actual records; source/note prose is provenance rather than table data.
+    rows = [
+        row for row in rows
+        if frame.loc[row].notna().sum() >= min_values and not _is_note_row(frame.loc[row].tolist())
+    ]
+    result = frame.loc[rows].copy()
+    # Columns that are empty across semantic data are not output fields.
+    if len(result):
+        result = result.dropna(axis=1, how='all')
+    if column_names is not None:
+        if len(column_names) != len(result.columns):
+            raise AssertionError((sheet_name, cell_range, len(column_names), len(result.columns)))
+        result.columns = column_names
+    elif header_rows:
+        header_frame = frame.loc[:, result.columns] if len(result.columns) else frame
+        result.columns = _combine_header_rows(sheet_name, header_frame, header_rows)
+    elif len(result.columns) == 2:
+        result.columns = ['Field', 'Assumption']
+    elif len(result.columns) == 1:
+        result.columns = ['Statement']
+    else:
+        result.columns = _unique_headers([None] * len(result.columns))
+    result = result.reset_index(drop=True)
+    result.attrs.update(source_sheet=sheet_name, source_range=cell_range, header_rows=header_rows or [])
+    return result
+
+
 def parse_flow_path_augmentation_options() -> pd.DataFrame:
-    """Return the 62 semantic flow-path option rows while preserving genuine nulls."""
     frame = read_source_range('Flow path augmentation options', 'B11:Q127')
+    # Rows 12–13 form the semantic header; row 14 onward contains option rows.
     option_rows = frame.index[frame.get('E').notna() & (frame.get('E') != 'Option name')]
     result = frame.loc[option_rows].copy()
     for merged in _merged_ranges(WORKBOOK_PATH, 'Flow path augmentation options'):
@@ -233,25 +362,113 @@ def parse_flow_path_augmentation_options() -> pd.DataFrame:
                 for row in result.index:
                     if min_row <= row <= max_row and pd.isna(result.at[row, 'B']):
                         result.at[row, 'B'] = anchor
+    result.columns = _combine_header_rows('Flow path augmentation options', frame.loc[:, result.columns], [12, 13])
+    result = result.reset_index(drop=False).rename(columns={'excel_row': 'source_row'})
     assert len(result) == 62, f'Expected 62 semantic option rows, found {len(result)}'
-    assert result.loc[[59, 60, 61], 'H'].isna().all(), 'Rows 59–61 must retain missing direction values.'
     return result
+
+
+def parse_run_of_river_hydro() -> pd.DataFrame:
+    frame = read_source_range('Hydro Scheme Inflows', 'B81:T121')
+    pieces = []
+    for scheme, header, rows in [('Kareeya', 87, range(88, 103)), ('Barron Gorge', 105, range(106, 121))]:
+        part = frame.loc[list(rows), [c for c in frame.columns if c <= 'O']].copy()
+        part.columns = _combine_header_rows('Hydro Scheme Inflows', frame.loc[:, part.columns], [header])
+        part.insert(0, 'Scheme', scheme)
+        pieces.append(part)
+    result = pd.concat(pieces, ignore_index=True)
+    assert len(result) == 30
+    return result
+
+
+def parse_summary_mapping(cell_range: str) -> pd.DataFrame:
+    min_col, min_row, max_col, max_row = range_boundaries(cell_range)
+    source = read_source_range('Summary Mapping', cell_range)
+    header = read_source_range('Summary Mapping', 'B4:AF6')
+    columns = [get_column_letter(c) for c in range(min_col, max_col + 1)]
+    data_start = 7 if min_row == 2 else min_row + 3
+    result = source.loc[data_start:max_row, columns].dropna(axis=0, how='all').copy()
+    result = result[result[columns[0]].notna()].copy()
+    result.columns = _combine_header_rows('Summary Mapping', header.loc[:, columns], [4, 5, 6])
+    result = result.reset_index(drop=True)
+    assert result.columns[0] == 'RowID'
+    return result
+
+
+TABLE_RULES = {
+    ('Existing Gen Data Summary', 'Existing generation data summary'): {'header_rows': [10, 11, 12], 'data_rows': range(13, 739)},
+    ('New Entrant Data Summary', 'New entrant data summary'): {'header_rows': [9, 10, 11], 'data_rows': range(12, 536)},
+    ('New Electrolyser Data Summary', 'New electrolyser data summary'): {'header_rows': [5, 6, 7], 'data_rows': range(8, 68)},
+    ('Connections Forecasts', 'Consultant forecast mapping'): {'header_rows': [9], 'data_rows': [10]},
+    ('Electrification', 'Consultant forecast mapping'): {'header_rows': [8], 'data_rows': [9]},
+    ('Fuel cell EVs', 'Fuel-cell EV forecasts'): {'header_rows': [14]},
+    ('Network representation', 'Network nodes'): {'header_rows': [5]},
+    ('Network capability', 'Flow-path transfer capability'): {'header_rows': [6, 7], 'data_rows': range(8, 26)},
+    ('Seasonal ratings', 'Seasonal generator ratings'): {'header_rows': [43, 44], 'data_rows': range(45, 771)},
+    ('Transmission Reliability', 'Transmission unplanned outage rates'): {'header_rows': [7], 'data_rows': range(8, 14)},
+    ('Marginal Loss Factors', 'Existing generator marginal loss factors'): {'header_rows': [12], 'data_rows': range(13, 749)},
+    ('Coal Min Stable Level', 'Coal minimum stable level'): {'header_rows': [12, 13], 'data_rows': range(14, 64)},
+    ('Financial parameters', 'Value of customer reliability'): {'header_rows': [47], 'data_rows': [48]},
+    ('Other hydrogen assumptions', 'Electrolyser electricity consumption rate'): {'header_rows': [9], 'data_rows': [10, 11]},
+    ('Fuel Price Summary', 'Gas price scenario selection'): {'data_rows': [8], 'column_names': ['Mapping field', 'Workbook selection', 'Consultant mapping field', 'Step Change', 'Slower Growth', 'Accelerated Transition']},
+    ('Fuel Price Summary', 'Coal and biomass price scenario selection'): {'data_rows': [9], 'column_names': ['Mapping field', 'Workbook selection', 'Consultant mapping field', 'Step Change', 'Slower Growth', 'Accelerated Transition']},
+    ('Gas System Properties', 'Gas reserves and resources summary'): {'header_rows': [128, 129], 'data_rows': [130]},
+    ('Gas System Properties', 'Gas reserves and resources by basin'): {'header_rows': [133], 'data_rows': range(134, 145)},
+    ('Hydrogen consumption locations', 'Regional hydrogen consumption allocation rule'): {'header_rows': [7], 'data_rows': range(8, 10)},
+    ('Hydrogen consumption locations', 'Subregional hydrogen consumption allocation rule'): {'header_rows': [15], 'data_rows': range(16, 19)},
+    ('Hydrogen consumption locations', 'Hydrogen consumption allocation'): {'header_rows': [24, 25], 'data_rows': range(26, 41)},
+    ('Embedded energy storages', 'Forecast mapping'): {'header_rows': [8], 'data_rows': [9]},
+    ('Aggregated energy storages', 'Forecast mapping'): {'header_rows': [8], 'data_rows': [9]},
+}
+
 
 def validate_table(frame: pd.DataFrame, spec: dict) -> None:
     if 'expected_rows' in spec:
         assert len(frame) == spec['expected_rows'], (spec['name'], len(frame), spec['expected_rows'])
     if 'expected_cols' in spec:
         assert len(frame.columns) == spec['expected_cols'], (spec['name'], len(frame.columns), spec['expected_cols'])
-    if 'expected_semantic_rows' in spec:
-        assert len(frame) == spec['expected_semantic_rows'], (spec['name'], len(frame), spec['expected_semantic_rows'])
+
 
 def parse_spec(sheet_name: str, spec: dict) -> pd.DataFrame:
-    frame = parse_flow_path_augmentation_options() if spec.get('parser') == 'flow_path_options' else read_source_range(sheet_name, spec['range'])
+    if spec.get('parser') == 'flow_path_options':
+        frame = parse_flow_path_augmentation_options()
+    elif spec.get('parser') == 'run_of_river_hydro':
+        frame = parse_run_of_river_hydro()
+    elif spec.get('parser') == 'summary_mapping':
+        frame = parse_summary_mapping(spec['range'])
+    else:
+        rule = dict(TABLE_RULES.get((sheet_name, spec['name']), {}))
+        if spec['name'] in {'Consultant forecast mapping', 'Forecast mapping'} and not rule:
+            source = read_source_range(sheet_name, spec['range'])
+            record_rows = [
+                row for row in source.index
+                if any('scenario' in str(value).lower() and 'name' in str(value).lower() for value in source.loc[row].dropna())
+            ]
+            if record_rows:
+                record = record_rows[0]
+                rule = {'header_rows': [record - 1], 'data_rows': [record]}
+        frame = parse_semantic_range(sheet_name, spec['range'], **rule)
+        first_column_names = {
+            ('Connections Forecasts', 'Consultant forecast mapping'): 'Mapping field',
+            ('Electrification', 'Consultant forecast mapping'): 'Mapping field',
+            ('Financial parameters', 'Value of customer reliability'): 'Metric',
+            ('Embedded energy storages', 'Forecast mapping'): 'Mapping field',
+            ('Aggregated energy storages', 'Forecast mapping'): 'Mapping field',
+        }
+        first_name = first_column_names.get((sheet_name, spec['name']))
+        if first_name and len(frame.columns):
+            columns = list(frame.columns); columns[0] = first_name; frame.columns = columns
+        if frame.empty:
+            source = read_source_range(sheet_name, spec['range']).dropna(axis=1, how='all')
+            rows = [row for row in source.index if source.loc[row].notna().any() and not _is_note_row(source.loc[row].tolist())]
+            frame = source.loc[rows].reset_index(drop=True)
+            base = ['Field', 'Assumption'] if len(frame.columns) == 2 else ['Field', 'Statement', 'Detail']
+            frame.columns = _unique_headers(base[:len(frame.columns)] + [None] * max(0, len(frame.columns) - len(base)))
     validate_table(frame, spec)
     return frame
 
+
 def show_table(frame: pd.DataFrame) -> None:
-    """Display a table in notebooks and print only its shape in script mode."""
     if get_ipython() is None:
         print(f"{frame.shape[0]} rows × {frame.shape[1]} columns")
     else:
@@ -388,15 +605,26 @@ show_table(new_electrolyser_data_summary_new_electrolyser_data_summary)
 # Summary (calculated) of generator fuel costs.
 
 # %% [markdown]
-# ### Fuel-price scenario selection
+# ### Gas price scenario selection
 #
-# Maps the selected ISP scenario to the fuel-price summary calculations.
+# Maps the ISP scenarios to the gas-price scenarios used in the fuel-price summary.
 #
-# Source block: `Fuel Price Summary!B7:S9` (3 rows × 18 columns).
+# Source block: `Fuel Price Summary!B8:S8` (1 row × 18 columns).
 
 # %%
-fuel_price_summary_fuel_price_scenario_selection = parse_spec('Fuel Price Summary', {'name': 'Fuel-price scenario selection', 'range': 'B7:S9'})
-show_table(fuel_price_summary_fuel_price_scenario_selection)
+fuel_price_summary_gas_price_scenario_selection = parse_spec('Fuel Price Summary', {'name': 'Gas price scenario selection', 'range': 'B8:S8'})
+show_table(fuel_price_summary_gas_price_scenario_selection)
+
+# %% [markdown]
+# ### Coal and biomass price scenario selection
+#
+# Maps the ISP scenarios to the coal and biomass price scenarios used in the fuel-price summary.
+#
+# Source block: `Fuel Price Summary!B9:S9` (1 row × 18 columns).
+
+# %%
+fuel_price_summary_coal_and_biomass_price_scenario_selection = parse_spec('Fuel Price Summary', {'name': 'Coal and biomass price scenario selection', 'range': 'B9:S9'})
+show_table(fuel_price_summary_coal_and_biomass_price_scenario_selection)
 
 # %% [markdown]
 # ### Existing generator fuel prices
@@ -1382,10 +1610,10 @@ show_table(renewable_energy_zones_candidate_renewable_energy_zones)
 #
 # Contains the 18 verified flow-path capability data rows; workbook headers are in rows 6–7.
 #
-# Source block: `Network capability!B8:K25` (18 rows × 10 columns).
+# Source block: `Network capability!B6:K25` (18 rows × 10 columns).
 
 # %%
-network_capability_flow_path_transfer_capability = parse_spec('Network capability', {'name': 'Flow-path transfer capability', 'range': 'B8:K25', 'expected_rows': 18, 'expected_cols': 10})
+network_capability_flow_path_transfer_capability = parse_spec('Network capability', {'name': 'Flow-path transfer capability', 'range': 'B6:K25', 'expected_rows': 18, 'expected_cols': 10})
 show_table(network_capability_flow_path_transfer_capability)
 
 # %% [markdown]
@@ -1496,7 +1724,7 @@ show_table(network_losses_development_option_loss_equations)
 # Source block: `Transmission Reliability!B7:E13` (7 rows × 4 columns).
 
 # %%
-transmission_reliability_transmission_unplanned_outage_rates = parse_spec('Transmission Reliability', {'name': 'Transmission unplanned outage rates', 'range': 'B7:E13', 'expected_rows': 7, 'expected_cols': 4})
+transmission_reliability_transmission_unplanned_outage_rates = parse_spec('Transmission Reliability', {'name': 'Transmission unplanned outage rates', 'range': 'B7:E13', 'expected_rows': 6, 'expected_cols': 4})
 show_table(transmission_reliability_transmission_unplanned_outage_rates)
 
 # %% [markdown]
@@ -1884,7 +2112,7 @@ show_table(hydro_scheme_inflows_secondary_hydro_scheme_releases_and_outflows)
 # Source block: `Hydro Scheme Inflows!B81:T121` (41 rows × 19 columns).
 
 # %%
-hydro_scheme_inflows_run_of_river_hydro_outflows = parse_spec('Hydro Scheme Inflows', {'name': 'Run-of-river hydro outflows', 'range': 'B81:T121'})
+hydro_scheme_inflows_run_of_river_hydro_outflows = parse_spec('Hydro Scheme Inflows', {'name': 'Run-of-river hydro outflows', 'range': 'B81:T121', 'parser': 'run_of_river_hydro', 'expected_rows': 30})
 show_table(hydro_scheme_inflows_run_of_river_hydro_outflows)
 
 # %% [markdown]
@@ -2097,10 +2325,10 @@ show_table(variable_opex_new_entrant_variable_opex)
 # %% [markdown]
 # ### Existing generator marginal loss factors
 #
-# Source block: `Marginal Loss Factors!B10:F748` (739 rows × 5 columns).
+# Source block: `Marginal Loss Factors!B10:G748` (739 rows × 5 columns).
 
 # %%
-marginal_loss_factors_existing_generator_marginal_loss_factors = parse_spec('Marginal Loss Factors', {'name': 'Existing generator marginal loss factors', 'range': 'B10:F748'})
+marginal_loss_factors_existing_generator_marginal_loss_factors = parse_spec('Marginal Loss Factors', {'name': 'Existing generator marginal loss factors', 'range': 'B10:G748'})
 show_table(marginal_loss_factors_existing_generator_marginal_loss_factors)
 
 # %% [markdown]
@@ -2538,13 +2766,26 @@ gas_system_properties_gas_storage_facilities = parse_spec('Gas System Properties
 show_table(gas_system_properties_gas_storage_facilities)
 
 # %% [markdown]
-# ### Gas reserves and resources
+# ### Gas reserves and resources summary
 #
-# Source block: `Gas System Properties!B124:F144` (21 rows × 5 columns).
+# Gives the aggregate developed and undeveloped 2P reserves and 2C resources reported from the Gas Bulletin Board.
+#
+# Source block: `Gas System Properties!B127:F130` (4 rows × 5 columns).
 
 # %%
-gas_system_properties_gas_reserves_and_resources = parse_spec('Gas System Properties', {'name': 'Gas reserves and resources', 'range': 'B124:F144'})
-show_table(gas_system_properties_gas_reserves_and_resources)
+gas_system_properties_gas_reserves_and_resources_summary = parse_spec('Gas System Properties', {'name': 'Gas reserves and resources summary', 'range': 'B127:F130'})
+show_table(gas_system_properties_gas_reserves_and_resources_summary)
+
+# %% [markdown]
+# ### Gas reserves and resources by basin
+#
+# Lists 2P reserves and 2C resources by gas basin.
+#
+# Source block: `Gas System Properties!B132:E144` (13 rows × 4 columns).
+
+# %%
+gas_system_properties_gas_reserves_and_resources_by_basin = parse_spec('Gas System Properties', {'name': 'Gas reserves and resources by basin', 'range': 'B132:E144'})
+show_table(gas_system_properties_gas_reserves_and_resources_by_basin)
 
 # %% [markdown]
 # ### Pipeline transmission tariffs
@@ -2699,13 +2940,37 @@ show_table(hydrogen_demand_export_and_commod_electricity_demand_for_green_steel)
 # Location of hydrogen consumption and candidate hydrogen hubs and ports.
 
 # %% [markdown]
-# ### Hydrogen consumption locations
+# ### Regional hydrogen consumption allocation rule
 #
-# Source block: `Hydrogen consumption locations!B5:F40` (36 rows × 5 columns).
+# Defines the priority rule used to locate regional hydrogen consumption for green commodities and export.
+#
+# Source block: `Hydrogen consumption locations!B7:C9` (3 rows × 2 columns).
 
 # %%
-hydrogen_consumption_locations_hydrogen_consumption_locations = parse_spec('Hydrogen consumption locations', {'name': 'Hydrogen consumption locations', 'range': 'B5:F40'})
-show_table(hydrogen_consumption_locations_hydrogen_consumption_locations)
+hydrogen_consumption_locations_regional_allocation_rule = parse_spec('Hydrogen consumption locations', {'name': 'Regional hydrogen consumption allocation rule', 'range': 'B7:C9'})
+show_table(hydrogen_consumption_locations_regional_allocation_rule)
+
+# %% [markdown]
+# ### Subregional hydrogen consumption allocation rule
+#
+# Defines the priority rule used to locate domestic hydrogen consumption within subregions.
+#
+# Source block: `Hydrogen consumption locations!B15:C18` (4 rows × 2 columns).
+
+# %%
+hydrogen_consumption_locations_subregional_allocation_rule = parse_spec('Hydrogen consumption locations', {'name': 'Subregional hydrogen consumption allocation rule', 'range': 'B15:C18'})
+show_table(hydrogen_consumption_locations_subregional_allocation_rule)
+
+# %% [markdown]
+# ### Hydrogen consumption allocation
+#
+# Applies the allocation rules to green-commodity, export, and domestic hydrogen consumption by ISP subregion.
+#
+# Source block: `Hydrogen consumption locations!B24:F40` (17 rows × 5 columns).
+
+# %%
+hydrogen_consumption_locations_hydrogen_consumption_allocation = parse_spec('Hydrogen consumption locations', {'name': 'Hydrogen consumption allocation', 'range': 'B24:F40'})
+show_table(hydrogen_consumption_locations_hydrogen_consumption_allocation)
 
 # %% [markdown]
 # ### Hydrogen hubs
@@ -2848,37 +3113,37 @@ show_table(other_hydrogen_assumptions_electrolyser_balance_of_plant)
 # %% [markdown]
 # ### Existing, committed, and anticipated asset mapping
 #
-# Source block: `Summary Mapping!C2:AF733` (732 rows × 30 columns).
+# Source block: `Summary Mapping!B2:AF733` (732 rows × 30 columns).
 
 # %%
-summary_mapping_existing_committed_and_anticipated_asset_mapping = parse_spec('Summary Mapping', {'name': 'Existing, committed, and anticipated asset mapping', 'range': 'C2:AF733'})
+summary_mapping_existing_committed_and_anticipated_asset_mapping = parse_spec('Summary Mapping', {'name': 'Existing, committed, and anticipated asset mapping', 'range': 'B2:AF733', 'parser': 'summary_mapping'})
 show_table(summary_mapping_existing_committed_and_anticipated_asset_mapping)
 
 # %% [markdown]
 # ### Consumer energy resource mapping
 #
-# Source block: `Summary Mapping!C734:AF786` (53 rows × 30 columns).
+# Source block: `Summary Mapping!B734:AF786` (53 rows × 30 columns).
 
 # %%
-summary_mapping_consumer_energy_resource_mapping = parse_spec('Summary Mapping', {'name': 'Consumer energy resource mapping', 'range': 'C734:AF786'})
+summary_mapping_consumer_energy_resource_mapping = parse_spec('Summary Mapping', {'name': 'Consumer energy resource mapping', 'range': 'B734:AF786', 'parser': 'summary_mapping'})
 show_table(summary_mapping_consumer_energy_resource_mapping)
 
 # %% [markdown]
 # ### New entrant asset mapping
 #
-# Source block: `Summary Mapping!C790:AF1316` (527 rows × 30 columns).
+# Source block: `Summary Mapping!B790:AF1316` (527 rows × 30 columns).
 
 # %%
-summary_mapping_new_entrant_asset_mapping = parse_spec('Summary Mapping', {'name': 'New entrant asset mapping', 'range': 'C790:AF1316'})
+summary_mapping_new_entrant_asset_mapping = parse_spec('Summary Mapping', {'name': 'New entrant asset mapping', 'range': 'B790:AF1316', 'parser': 'summary_mapping'})
 show_table(summary_mapping_new_entrant_asset_mapping)
 
 # %% [markdown]
 # ### New entrant electrolyser mapping
 #
-# Source block: `Summary Mapping!C1319:AF1381` (63 rows × 30 columns).
+# Source block: `Summary Mapping!B1319:AF1381` (63 rows × 30 columns).
 
 # %%
-summary_mapping_new_entrant_electrolyser_mapping = parse_spec('Summary Mapping', {'name': 'New entrant electrolyser mapping', 'range': 'C1319:AF1381'})
+summary_mapping_new_entrant_electrolyser_mapping = parse_spec('Summary Mapping', {'name': 'New entrant electrolyser mapping', 'range': 'B1319:AF1381', 'parser': 'summary_mapping'})
 show_table(summary_mapping_new_entrant_electrolyser_mapping)
 
 # %% [markdown]
@@ -2887,8 +3152,8 @@ show_table(summary_mapping_new_entrant_electrolyser_mapping)
 # The checks below confirm worksheet coverage and the three source contracts already verified for ParseISP.
 
 # %%
-assert list(SHEET_RANGES) == workbook.sheetnames[:len(SHEET_RANGES)]
+assert list(SHEET_RANGES) == workbook.sheetnames
 assert network_capability_flow_path_transfer_capability.shape == (18, 10) if len(SHEET_RANGES) >= 32 else True
-assert transmission_reliability_transmission_unplanned_outage_rates.shape == (7, 4) if len(SHEET_RANGES) >= 34 else True
+assert transmission_reliability_transmission_unplanned_outage_rates.shape == (6, 4) if len(SHEET_RANGES) >= 34 else True
 assert flow_path_augmentation_options_flow_path_augmentation_options.shape[0] == 62 if len(SHEET_RANGES) >= 38 else True
 

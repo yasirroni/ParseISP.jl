@@ -4,26 +4,15 @@
 # Summary (calculated) of generator fuel costs.
 
 # %% [markdown]
-# ### Gas price scenario selection
+# ### Fuel-price scenario selection
 #
-# Maps the ISP scenarios to the gas-price scenarios used in the fuel-price summary.
+# Maps the selected ISP scenario to the fuel-price summary calculations.
 #
-# Source block: `Fuel Price Summary!B8:S8` (1 row × 18 columns).
+# Source block: `Fuel Price Summary!B7:S9` (3 rows × 18 columns).
 
 # %%
-fuel_price_summary_gas_price_scenario_selection = parse_spec('Fuel Price Summary', {'name': 'Gas price scenario selection', 'range': 'B8:S8'})
-show_table(fuel_price_summary_gas_price_scenario_selection)
-
-# %% [markdown]
-# ### Coal and biomass price scenario selection
-#
-# Maps the ISP scenarios to the coal and biomass price scenarios used in the fuel-price summary.
-#
-# Source block: `Fuel Price Summary!B9:S9` (1 row × 18 columns).
-
-# %%
-fuel_price_summary_coal_and_biomass_price_scenario_selection = parse_spec('Fuel Price Summary', {'name': 'Coal and biomass price scenario selection', 'range': 'B9:S9'})
-show_table(fuel_price_summary_coal_and_biomass_price_scenario_selection)
+fuel_price_summary_fuel_price_scenario_selection = parse_spec('Fuel Price Summary', {'name': 'Fuel-price scenario selection', 'range': 'B7:S9'})
+show_table(fuel_price_summary_fuel_price_scenario_selection)
 
 # %% [markdown]
 # ### Existing generator fuel prices

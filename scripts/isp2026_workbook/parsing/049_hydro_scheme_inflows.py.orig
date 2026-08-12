@@ -18,7 +18,7 @@ show_table(hydro_scheme_inflows_secondary_hydro_scheme_releases_and_outflows)
 # Source block: `Hydro Scheme Inflows!B81:T121` (41 rows × 19 columns).
 
 # %%
-hydro_scheme_inflows_run_of_river_hydro_outflows = parse_spec('Hydro Scheme Inflows', {'name': 'Run-of-river hydro outflows', 'range': 'B81:T121', 'parser': 'run_of_river_hydro', 'expected_rows': 30})
+hydro_scheme_inflows_run_of_river_hydro_outflows = parse_spec('Hydro Scheme Inflows', {'name': 'Run-of-river hydro outflows', 'range': 'B81:T121'})
 show_table(hydro_scheme_inflows_run_of_river_hydro_outflows)
 
 # %% [markdown]

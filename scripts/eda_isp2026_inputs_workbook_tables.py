@@ -55,7 +55,7 @@ SHEET_RANGES = {'Disclaimer': [],
  'Existing Gen Data Summary': ['B10:AT738'],
  'New Entrant Data Summary': ['B9:BB535'],
  'New Electrolyser Data Summary': ['B5:AQ67'],
- 'Fuel Price Summary': ['B7:S9', 'B11:AK738', 'B743:AK1268'],
+ 'Fuel Price Summary': ['B8:S8', 'B9:S9', 'B11:AK738', 'B743:AK1268'],
  'Regional Build Costs Summary': ['B7:C10', 'B12:AV75'],
  'Energy Policy Targets': ['C15:E30',
                            'C32:F62',
@@ -107,7 +107,7 @@ SHEET_RANGES = {'Disclaimer': [],
  'Aggregated energy storages': ['B7:E9', 'B11:AH62', 'B65:AH116'],
  'Network representation': ['B2:E22', 'B24:D42', 'B44:D53', 'B55:D63', 'B65:D82'],
  'Renewable energy zones': ['B6:E53'],
- 'Network capability': ['B8:K25', 'B34:K42', 'B51:N60', 'B75:V84', 'B89:E94', 'B99:D115', 'B122:C134', 'B139:C148'],
+ 'Network capability': ['B6:K25', 'B34:K42', 'B51:N60', 'B75:V84', 'B89:E94', 'B99:D115', 'B122:C134', 'B139:C148'],
  'Network losses': ['B5:J28', 'B30:J34', 'B36:J88'],
  'Transmission Reliability': ['B7:E13'],
  'Distribution network': ['B11:G38', 'B40:H57', 'B59:AZ1433'],
@@ -133,7 +133,7 @@ SHEET_RANGES = {'Disclaimer': [],
  'Build costs': ['B2:AJ77'],
  'Fixed OPEX': ['B5:E739', 'G5:I32'],
  'Variable OPEX': ['B5:E738', 'G5:H32'],
- 'Marginal Loss Factors': ['B10:F748', 'I10:M536', 'O10:S161'],
+ 'Marginal Loss Factors': ['B10:G748', 'I10:M536', 'O10:S161'],
  'Locational Cost Factors': ['B9:H80', 'B83:I132', 'B134:G158', 'B161:X227'],
  'Build limits - REZs': ['B2:Q62',
                          'B64:N119',
@@ -160,20 +160,20 @@ SHEET_RANGES = {'Disclaimer': [],
                                 'B305:AG429',
                                 'B433:AG438',
                                 'B440:AG452'],
- 'Gas System Properties': ['B7:F49', 'B51:G105', 'B108:H122', 'B124:F144', 'B146:E169', 'B171:E185'],
+ 'Gas System Properties': ['B7:F49', 'B51:G105', 'B108:H122', 'B127:F130', 'B132:E144', 'B146:E169', 'B171:E185'],
  'GPG emissions reduction - BioM': ['B2:AF12'],
  'Power System Security': ['B4:D49', 'B52:AE56', 'B58:G72', 'B74:G94'],
  'Reserves': ['B2:C14'],
  'Hydrogen demand - Domestic': ['B2:AH53'],
  'Hydrogen monthly profiles': ['B2:AG44'],
  'Hydrogen demand-Export&Commod': ['B2:AH52', 'B54:AH105', 'B107:AH156'],
- 'Hydrogen consumption locations': ['B5:F40', 'B42:B44', 'B46:D57'],
+ 'Hydrogen consumption locations': ['B7:C9', 'B15:C18', 'B24:F40', 'B42:B44', 'B46:D57'],
  'Water for Hydrogen': ['B2:AH52'],
  'Desalination demand for H2': ['B2:AH52'],
  'H2 as fuel for GPG Limit': ['B2:AG21'],
  'Build Cost - Hydrogen pipeline': ['B2:AJ156'],
  'Other hydrogen assumptions': ['B2:C5', 'B7:AF11', 'B13:AF17', 'B19:AF23', 'B26:AF30', 'B32:C35'],
- 'Summary Mapping': ['C2:AF733', 'C734:AF786', 'C790:AF1316', 'C1319:AF1381']}
+ 'Summary Mapping': ['B2:AF733', 'B734:AF786', 'B790:AF1316', 'B1319:AF1381']}
 
 # %% [markdown]
 # ## Discovery helpers
@@ -414,14 +414,24 @@ inspect_candidate('New Electrolyser Data Summary', 'B5:AQ67')
 show_sheet_discovery('Fuel Price Summary')
 
 # %% [markdown]
-# ### Fuel-price scenario selection
+# ### Gas price scenario selection
 #
-# Maps the selected ISP scenario to the fuel-price summary calculations.
+# Maps the ISP scenarios to the gas-price scenarios used in the fuel-price summary.
 #
-# Candidate source block: `B7:S9` (3 rows × 18 columns).
+# Source block: `Fuel Price Summary!B8:S8` (1 row × 18 columns).
 
 # %%
-inspect_candidate('Fuel Price Summary', 'B7:S9')
+inspect_source_range('Fuel Price Summary', 'B8:S8')
+
+# %% [markdown]
+# ### Coal and biomass price scenario selection
+#
+# Maps the ISP scenarios to the coal and biomass price scenarios used in the fuel-price summary.
+#
+# Source block: `Fuel Price Summary!B9:S9` (1 row × 18 columns).
+
+# %%
+inspect_source_range('Fuel Price Summary', 'B9:S9')
 
 # %% [markdown]
 # ### Existing generator fuel prices
@@ -2552,12 +2562,24 @@ inspect_candidate('Gas System Properties', 'B51:G105')
 inspect_candidate('Gas System Properties', 'B108:H122')
 
 # %% [markdown]
-# ### Gas reserves and resources
+# ### Gas reserves and resources summary
 #
-# Candidate source block: `B124:F144` (21 rows × 5 columns).
+# Gives the aggregate developed and undeveloped 2P reserves and 2C resources reported from the Gas Bulletin Board.
+#
+# Source block: `Gas System Properties!B127:F130` (4 rows × 5 columns).
 
 # %%
-inspect_candidate('Gas System Properties', 'B124:F144')
+inspect_source_range('Gas System Properties', 'B127:F130')
+
+# %% [markdown]
+# ### Gas reserves and resources by basin
+#
+# Lists 2P reserves and 2C resources by gas basin.
+#
+# Source block: `Gas System Properties!B132:E144` (13 rows × 4 columns).
+
+# %%
+inspect_source_range('Gas System Properties', 'B132:E144')
 
 # %% [markdown]
 # ### Pipeline transmission tariffs
@@ -2720,12 +2742,34 @@ inspect_candidate('Hydrogen demand-Export&Commod', 'B107:AH156')
 show_sheet_discovery('Hydrogen consumption locations')
 
 # %% [markdown]
-# ### Hydrogen consumption locations
+# ### Regional hydrogen consumption allocation rule
 #
-# Candidate source block: `B5:F40` (36 rows × 5 columns).
+# Defines the priority rule used to locate regional hydrogen consumption for green commodities and export.
+#
+# Source block: `Hydrogen consumption locations!B7:C9` (3 rows × 2 columns).
 
 # %%
-inspect_candidate('Hydrogen consumption locations', 'B5:F40')
+inspect_source_range('Hydrogen consumption locations', 'B7:C9')
+
+# %% [markdown]
+# ### Subregional hydrogen consumption allocation rule
+#
+# Defines the priority rule used to locate domestic hydrogen consumption within subregions.
+#
+# Source block: `Hydrogen consumption locations!B15:C18` (4 rows × 2 columns).
+
+# %%
+inspect_source_range('Hydrogen consumption locations', 'B15:C18')
+
+# %% [markdown]
+# ### Hydrogen consumption allocation
+#
+# Applies the allocation rules to green-commodity, export, and domestic hydrogen consumption by ISP subregion.
+#
+# Source block: `Hydrogen consumption locations!B24:F40` (17 rows × 5 columns).
+
+# %%
+inspect_source_range('Hydrogen consumption locations', 'B24:F40')
 
 # %% [markdown]
 # ### Hydrogen hubs
@@ -2877,7 +2921,7 @@ show_sheet_discovery('Summary Mapping')
 # Candidate source block: `C2:AF733` (732 rows × 30 columns).
 
 # %%
-inspect_candidate('Summary Mapping', 'C2:AF733')
+inspect_candidate('Summary Mapping', 'B2:AF733')
 
 # %% [markdown]
 # ### Consumer energy resource mapping
@@ -2885,7 +2929,7 @@ inspect_candidate('Summary Mapping', 'C2:AF733')
 # Candidate source block: `C734:AF786` (53 rows × 30 columns).
 
 # %%
-inspect_candidate('Summary Mapping', 'C734:AF786')
+inspect_candidate('Summary Mapping', 'B734:AF786')
 
 # %% [markdown]
 # ### New entrant asset mapping
@@ -2893,7 +2937,7 @@ inspect_candidate('Summary Mapping', 'C734:AF786')
 # Candidate source block: `C790:AF1316` (527 rows × 30 columns).
 
 # %%
-inspect_candidate('Summary Mapping', 'C790:AF1316')
+inspect_candidate('Summary Mapping', 'B790:AF1316')
 
 # %% [markdown]
 # ### New entrant electrolyser mapping
@@ -2901,7 +2945,7 @@ inspect_candidate('Summary Mapping', 'C790:AF1316')
 # Candidate source block: `C1319:AF1381` (63 rows × 30 columns).
 
 # %%
-inspect_candidate('Summary Mapping', 'C1319:AF1381')
+inspect_candidate('Summary Mapping', 'B1319:AF1381')
 
 # %% [markdown]
 # ## Coverage check
@@ -2910,6 +2954,6 @@ inspect_candidate('Summary Mapping', 'C1319:AF1381')
 # embedded semantic data table; those cases remain explicit rather than being silently omitted.
 
 # %%
-assert list(SHEET_RANGES) == workbook_formula.sheetnames[:len(SHEET_RANGES)]
+assert list(SHEET_RANGES) == workbook_formula.sheetnames
 sum(len(ranges) for ranges in SHEET_RANGES.values())
 

@@ -12,7 +12,7 @@ show_sheet_discovery('Summary Mapping')
 # Candidate source block: `C2:AF733` (732 rows × 30 columns).
 
 # %%
-inspect_candidate('Summary Mapping', 'B2:AF733')
+inspect_candidate('Summary Mapping', 'C2:AF733')
 
 # %% [markdown]
 # ### Consumer energy resource mapping
@@ -20,7 +20,7 @@ inspect_candidate('Summary Mapping', 'B2:AF733')
 # Candidate source block: `C734:AF786` (53 rows × 30 columns).
 
 # %%
-inspect_candidate('Summary Mapping', 'B734:AF786')
+inspect_candidate('Summary Mapping', 'C734:AF786')
 
 # %% [markdown]
 # ### New entrant asset mapping
@@ -28,7 +28,7 @@ inspect_candidate('Summary Mapping', 'B734:AF786')
 # Candidate source block: `C790:AF1316` (527 rows × 30 columns).
 
 # %%
-inspect_candidate('Summary Mapping', 'B790:AF1316')
+inspect_candidate('Summary Mapping', 'C790:AF1316')
 
 # %% [markdown]
 # ### New entrant electrolyser mapping
@@ -36,5 +36,5 @@ inspect_candidate('Summary Mapping', 'B790:AF1316')
 # Candidate source block: `C1319:AF1381` (63 rows × 30 columns).
 
 # %%
-inspect_candidate('Summary Mapping', 'B1319:AF1381')
+inspect_candidate('Summary Mapping', 'C1319:AF1381')
 

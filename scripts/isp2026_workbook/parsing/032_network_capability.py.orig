@@ -8,10 +8,10 @@
 #
 # Contains the 18 verified flow-path capability data rows; workbook headers are in rows 6–7.
 #
-# Source block: `Network capability!B6:K25` (18 rows × 10 columns).
+# Source block: `Network capability!B8:K25` (18 rows × 10 columns).
 
 # %%
-network_capability_flow_path_transfer_capability = parse_spec('Network capability', {'name': 'Flow-path transfer capability', 'range': 'B6:K25', 'expected_rows': 18, 'expected_cols': 10})
+network_capability_flow_path_transfer_capability = parse_spec('Network capability', {'name': 'Flow-path transfer capability', 'range': 'B8:K25', 'expected_rows': 18, 'expected_cols': 10})
 show_table(network_capability_flow_path_transfer_capability)
 
 # %% [markdown]

@@ -31,26 +31,13 @@ gas_system_properties_gas_storage_facilities = parse_spec('Gas System Properties
 show_table(gas_system_properties_gas_storage_facilities)
 
 # %% [markdown]
-# ### Gas reserves and resources summary
+# ### Gas reserves and resources
 #
-# Gives the aggregate developed and undeveloped 2P reserves and 2C resources reported from the Gas Bulletin Board.
-#
-# Source block: `Gas System Properties!B127:F130` (4 rows × 5 columns).
+# Source block: `Gas System Properties!B124:F144` (21 rows × 5 columns).
 
 # %%
-gas_system_properties_gas_reserves_and_resources_summary = parse_spec('Gas System Properties', {'name': 'Gas reserves and resources summary', 'range': 'B127:F130'})
-show_table(gas_system_properties_gas_reserves_and_resources_summary)
-
-# %% [markdown]
-# ### Gas reserves and resources by basin
-#
-# Lists 2P reserves and 2C resources by gas basin.
-#
-# Source block: `Gas System Properties!B132:E144` (13 rows × 4 columns).
-
-# %%
-gas_system_properties_gas_reserves_and_resources_by_basin = parse_spec('Gas System Properties', {'name': 'Gas reserves and resources by basin', 'range': 'B132:E144'})
-show_table(gas_system_properties_gas_reserves_and_resources_by_basin)
+gas_system_properties_gas_reserves_and_resources = parse_spec('Gas System Properties', {'name': 'Gas reserves and resources', 'range': 'B124:F144'})
+show_table(gas_system_properties_gas_reserves_and_resources)
 
 # %% [markdown]
 # ### Pipeline transmission tariffs

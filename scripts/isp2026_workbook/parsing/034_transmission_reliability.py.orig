@@ -11,6 +11,6 @@
 # Source block: `Transmission Reliability!B7:E13` (7 rows × 4 columns).
 
 # %%
-transmission_reliability_transmission_unplanned_outage_rates = parse_spec('Transmission Reliability', {'name': 'Transmission unplanned outage rates', 'range': 'B7:E13', 'expected_rows': 6, 'expected_cols': 4})
+transmission_reliability_transmission_unplanned_outage_rates = parse_spec('Transmission Reliability', {'name': 'Transmission unplanned outage rates', 'range': 'B7:E13', 'expected_rows': 7, 'expected_cols': 4})
 show_table(transmission_reliability_transmission_unplanned_outage_rates)
 

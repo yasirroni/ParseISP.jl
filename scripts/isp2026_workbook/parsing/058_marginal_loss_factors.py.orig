@@ -6,10 +6,10 @@
 # %% [markdown]
 # ### Existing generator marginal loss factors
 #
-# Source block: `Marginal Loss Factors!B10:G748` (739 rows × 5 columns).
+# Source block: `Marginal Loss Factors!B10:F748` (739 rows × 5 columns).
 
 # %%
-marginal_loss_factors_existing_generator_marginal_loss_factors = parse_spec('Marginal Loss Factors', {'name': 'Existing generator marginal loss factors', 'range': 'B10:G748'})
+marginal_loss_factors_existing_generator_marginal_loss_factors = parse_spec('Marginal Loss Factors', {'name': 'Existing generator marginal loss factors', 'range': 'B10:F748'})
 show_table(marginal_loss_factors_existing_generator_marginal_loss_factors)
 
 # %% [markdown]
