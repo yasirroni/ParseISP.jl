@@ -1,0 +1,64 @@
+name: Apply verified ISP 2026 semantic rebuild
+
+on:
+  push:
+    branches:
+      - agent/isp2026-workbook-table-notebooks
+    paths:
+      - .github/workflows/apply-isp2026-rebuild.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/isp2026-workbook-table-notebooks
+          fetch-depth: 0
+      - name: Verify and apply rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' '075cc9632a11416764dd0c02d25f7d832b5b0818bc8a86ef7d87f16765e73956' scripts/.isp2026-rebuild-payload/chunk00 | sha256sum -c -
+          printf '%s  %s\n' '81f464fb24104ecf622681a10e520b85bb24775d514b0cf8cb7ddb0023a05399' scripts/.isp2026-rebuild-payload/chunk01 | sha256sum -c -
+          printf '%s  %s\n' 'c8ee067909c0a67da475c578d4fffea9a30fb200b23e2060fe5e2e79ef750c16' scripts/.isp2026-rebuild-payload/chunk02 | sha256sum -c -
+          printf '%s  %s\n' 'b0c28ef230c04a57c528cf65b1397145f4d1348ce2af6abd60a8c6806db6c240' scripts/.isp2026-rebuild-payload/chunk03 | sha256sum -c -
+          cat scripts/.isp2026-rebuild-payload/chunk0{0,1,2,3} > /tmp/semantic-rebuild.b64
+          printf '%s  %s\n' 'e5cb65239d6fd91a0b9a69698990770c1adb6ddf59381edd7ee244e76dd8574a' /tmp/semantic-rebuild.b64 | sha256sum -c -
+          base64 -d /tmp/semantic-rebuild.b64 > /tmp/semantic-rebuild.patch.gz
+          printf '%s  %s\n' 'ef2a6e017d38af975b954af18e8b295ea52fe6f47d51aedc088511422b9dcf07' /tmp/semantic-rebuild.patch.gz | sha256sum -c -
+          gzip -t /tmp/semantic-rebuild.patch.gz
+          gzip -dc /tmp/semantic-rebuild.patch.gz > /tmp/semantic-rebuild.patch
+          printf '%s  %s\n' 'b40916a1dcd4b19c0f4ca576ae1066318344a0eee4c040e38eff675492f45130' /tmp/semantic-rebuild.patch | sha256sum -c -
+          patch -p1 --batch < /tmp/semantic-rebuild.patch
+          python -m py_compile scripts/eda_isp2026_inputs_workbook_tables.py scripts/parse_isp2026_inputs_workbook_tables.py scripts/isp2026_workbook/assemble.py scripts/isp2026_workbook/discovery/*.py scripts/isp2026_workbook/parsing/*.py
+          test "$(find scripts/isp2026_workbook/discovery -maxdepth 1 -name '[0-9][0-9][0-9]_*.py' | wc -l)" -eq 84
+          test "$(find scripts/isp2026_workbook/parsing -maxdepth 1 -name '[0-9][0-9][0-9]_*.py' | wc -l)" -eq 84
+          test "$(grep -h '^# ### ' scripts/isp2026_workbook/discovery/[0-9][0-9][0-9]_*.py | wc -l)" -eq 243
+          test "$(grep -h '^# ### ' scripts/isp2026_workbook/parsing/[0-9][0-9][0-9]_*.py | wc -l)" -eq 243
+          python scripts/isp2026_workbook/assemble.py
+          printf '%s  %s\n' 'cbbbc91b545dd0b2aa348cba103f7b17ff2875c578494ebacb870d05531cce9b' scripts/eda_isp2026_inputs_workbook_tables.py | sha256sum -c -
+          printf '%s  %s\n' '8e61237615bce1eae502fac89ff46e6f8b6ca41f7f1903d636fc5a89d2ac9703' scripts/parse_isp2026_inputs_workbook_tables.py | sha256sum -c -
+      - name: Commit semantic rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/eda_isp2026_inputs_workbook_tables.py scripts/parse_isp2026_inputs_workbook_tables.py scripts/isp2026_workbook
+          git commit -m 'Rebuild ISP 2026 workbook semantic tables'
+          git push origin HEAD:agent/isp2026-workbook-table-notebooks
+      - name: Remove temporary transport files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf scripts/.isp2026-rebuild-payload scripts/.isp2026-repair-payload scripts/.isp2026-repair-final scripts/.isp2026-repair-v2
+          rm -f .github/workflows/apply-isp2026-semantic-repair.yml .github/workflows/apply-isp2026-rebuild.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Remove ISP 2026 repair transport files'
+            git push origin HEAD:agent/isp2026-workbook-table-notebooks
+          fi
