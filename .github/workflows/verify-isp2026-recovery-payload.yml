@@ -1,0 +1,38 @@
+name: Verify ISP 2026 recovery payload
+
+on:
+  push:
+    branches:
+      - agent/isp2026-workbook-table-notebooks-recovery-check
+    paths:
+      - .github/workflows/verify-isp2026-recovery-payload.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/isp2026-workbook-table-notebooks-recovery-check
+      - name: Reconstruct and verify payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            scripts/.isp2026-repair-v2/chunk00 \
+            scripts/.isp2026-repair-v2/chunk01 \
+            scripts/.isp2026-repair-v2/chunk02 \
+            scripts/.isp2026-repair-v2/chunk03 \
+            scripts/.isp2026-repair-v2/chunk04 \
+            > /tmp/repair.b64
+          base64 -d /tmp/repair.b64 > /tmp/repair.diff.gz
+          sha256sum /tmp/repair.diff.gz
+          gzip -t /tmp/repair.diff.gz
+          gzip -dc /tmp/repair.diff.gz > /tmp/repair.diff
+          sha256sum /tmp/repair.diff
+          patch -p1 --dry-run --batch < /tmp/repair.diff
+          wc -c /tmp/repair.b64 /tmp/repair.diff.gz /tmp/repair.diff
+          grep -c '^diff --git ' /tmp/repair.diff
